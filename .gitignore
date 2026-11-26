@@ -1,0 +1,4 @@
+/target
+/senso-data.json
+/senso-data.json.tmp
+*.tmp
