@@ -62,7 +62,7 @@
   const PHOTOS = ['shake-vanilla', 'shake-oreo', 'shake-strawberry', 'shake-lotus', 'shake-chocbanana', 'mojito', 'lemonade', 'banana-milk', 'energy-bomb',
     'smoothie-strawberry', 'smoothie-mango', 'smoothie-kiwi', 'smoothie-berry', 'smoothie-banana', 'smoothie-mix',
     'pancake-senso', 'pancake-nutella', 'pancake-honey', 'waffle-honey-nutella', 'waffle-senso', 'waffle-nutella', 'crepe'];
-  const photos = () => Object.fromEntries(PHOTOS.map(id => ['m-' + id, `img/items/${id}.jpg`]));
+  const photos = () => Object.fromEntries(PHOTOS.map(id => ['m-' + id, `img/items/${id}.webp`]));
   root.SensoSeed = {
     photos,
     ings: () => ING.map(([id, name, nameFa, qty, unit, min]) => ({ id: 'i-' + id, name, nameFa, qty, unit, min, cost: 0, supplier: '' })),

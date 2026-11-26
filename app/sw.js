@@ -1,5 +1,5 @@
 /* Keeps the app working offline once it has been opened. Bump VERSION when files change. */
-const VERSION = 'senso-v3';
+const VERSION = 'senso-v4';
 const FILES = ['./', 'index.html', 'css/app.css', 'js/core.js', 'js/seed.js', 'js/i18n.js', 'js/art.js', 'js/files.js', 'js/app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'fonts/vazirmatn-arabic.woff2', 'fonts/vazirmatn-latin.woff2', 'fonts/lalezar-arabic.woff2', 'fonts/lalezar-latin.woff2'];

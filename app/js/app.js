@@ -261,7 +261,7 @@
     const target = $('#ticket') && $('#ticket').offsetParent ? $('#ticket') : $('#orderbar button');
     if (!target) return;
     const a = fromEl.getBoundingClientRect(), b = target.getBoundingClientRect();
-    const dot = document.createElement('div'); dot.className = 'flyer'; dot.style.background = color; const src = fromEl.querySelector('img'); if (src) { dot.style.backgroundImage = `url("${src.getAttribute('src')}")`; dot.classList.add('pic'); }
+    const dot = document.createElement('div'); dot.className = 'flyer'; dot.style.background = color; const src = fromEl.querySelector('img'); if (src) { dot.style.background = `url("${src.getAttribute('src')}") center/contain no-repeat`; dot.classList.add('pic'); }
     const x0 = a.left + a.width / 2 - 9, y0 = a.top + 50, x1 = b.left + b.width / 2 - 9, y1 = b.top + 40;
     dot.style.left = x0 + 'px'; dot.style.top = y0 + 'px'; document.body.appendChild(dot);
     const dx = x1 - x0, dy = y1 - y0;
@@ -1075,7 +1075,7 @@
       db = await C.openDB();
       const r = await C.loadAll(db);
       if (!r.seeded) { S = seedState(); await C.wipeAndLoad(db, S); } else S = r.state;
-      const P = SEED.photos(); const fix = S.menu.filter(m => m.photo === undefined && P[m.id]).map(m => ({ store: 'menu', put: { ...m, photo: P[m.id] } }));
+      const P = SEED.photos(); const fix = S.menu.filter(m => P[m.id] && (m.photo === undefined || /^img\/items\/.+\.jpg$/.test(m.photo))).map(m => ({ store: 'menu', put: { ...m, photo: P[m.id] } }));
       if (fix.length) { C.apply(S, fix); await C.save(db, fix); }
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     } catch (e) {
