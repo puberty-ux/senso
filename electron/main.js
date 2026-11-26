@@ -1,14 +1,23 @@
 // Senso Bar for Windows: wraps the offline app in its own window, prints
-// receipts, saves files, and keeps a daily backup in Documents.
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+// receipts, and saves backups and exports in Documents\Senso Bar.
+const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 let win = null;
-const BACKUP_KEEP = 30;
-const backupDir = () => path.join(app.getPath('documents'), 'Senso Bar Backups');
+const FOLDERS = ['Backups', 'Exports'];
+const base = () => path.join(app.getPath('documents'), 'Senso Bar');
+function folderPath(folder) {
+  if (!FOLDERS.includes(folder)) throw new Error('Unknown folder');
+  return path.join(base(), folder);
+}
+function filePath(folder, name) {
+  const safe = path.basename(String(name || '')).replace(/[\\/:*?"<>|]/g, '-');
+  if (!safe || safe.startsWith('.')) throw new Error('Bad file name');
+  return path.join(folderPath(folder), safe);
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -19,7 +28,6 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, '..', 'app', 'index.html'));
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
-  // Keep the app on its own pages; open real web links in the browser.
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) e.preventDefault(); });
 }
@@ -35,25 +43,26 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 ipcMain.handle('senso:print', (event, opts) => new Promise(resolve => {
   event.sender.print({ silent: !!(opts && opts.silent), printBackground: true, margins: { marginType: 'none' } }, (ok, reason) => resolve({ ok, reason }));
 }));
-
-ipcMain.handle('senso:saveFile', async (event, name, text) => {
-  const safe = String(name || 'senso.txt').replace(/[\\/:*?"<>|]/g, '-');
-  const r = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender), { defaultPath: path.join(app.getPath('documents'), safe) });
-  if (r.canceled || !r.filePath) return false;
-  await fs.promises.writeFile(r.filePath, String(text), 'utf8');
-  return true;
-});
-
-ipcMain.handle('senso:autoBackup', async (_event, json) => {
-  if (typeof json !== 'string' || json.length > 200 * 1024 * 1024) return false;
-  const dir = backupDir();
-  await fs.promises.mkdir(dir, { recursive: true });
-  const d = new Date();
-  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const file = path.join(dir, `senso-backup-${day}.json`);
-  await fs.promises.writeFile(file + '.tmp', json, 'utf8');
+ipcMain.handle('senso:where', () => base());
+ipcMain.handle('senso:saveTo', async (_e, folder, name, text) => {
+  if (typeof text !== 'string' || text.length > 300 * 1024 * 1024) throw new Error('File too large');
+  const file = filePath(folder, name);
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
+  await fs.promises.writeFile(file + '.tmp', text, 'utf8');
   await fs.promises.rename(file + '.tmp', file);
-  const old = (await fs.promises.readdir(dir)).filter(f => /^senso-backup-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().reverse().slice(BACKUP_KEEP);
-  await Promise.all(old.map(f => fs.promises.unlink(path.join(dir, f)).catch(() => {})));
-  return true;
+  return file;
+});
+ipcMain.handle('senso:list', async (_e, folder) => {
+  const dir = folderPath(folder);
+  try {
+    const names = (await fs.promises.readdir(dir)).filter(n => !n.startsWith('.') && !n.endsWith('.tmp'));
+    return Promise.all(names.map(async name => { const st = await fs.promises.stat(path.join(dir, name)); return { name, size: st.size, mtime: st.mtimeMs }; }));
+  } catch (_) { return []; }
+});
+ipcMain.handle('senso:read', (_e, folder, name) => fs.promises.readFile(filePath(folder, name), 'utf8'));
+ipcMain.handle('senso:remove', (_e, folder, name) => fs.promises.unlink(filePath(folder, name)));
+ipcMain.handle('senso:openFolder', async (_e, folder) => {
+  const dir = folderPath(folder);
+  await fs.promises.mkdir(dir, { recursive: true });
+  return shell.openPath(dir);
 });

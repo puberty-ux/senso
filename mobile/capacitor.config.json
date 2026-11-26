@@ -1,0 +1,10 @@
+{
+  "appId": "af.sensobar.pos",
+  "appName": "Senso Bar",
+  "webDir": "www",
+  "backgroundColor": "#1A1714",
+  "android": {
+    "backgroundColor": "#1A1714",
+    "allowMixedContent": false
+  }
+}

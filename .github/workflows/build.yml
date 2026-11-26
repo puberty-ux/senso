@@ -1,0 +1,87 @@
+name: Build apps
+
+# Builds the Windows program and the Android APK, then publishes both on the Releases page.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', '.github/workflows/web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Install
+        run: npm install
+      - name: Get offline fonts (optional)
+        continue-on-error: true
+        run: npm install --no-save @fontsource-variable/vazirmatn @fontsource/lalezar
+      - name: Test
+        run: npm test
+      - name: Build Senso Bar.exe
+        run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.exe
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Get offline fonts (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/fonts" && cd "$RUNNER_TEMP/fonts"
+          npm init -y >/dev/null
+          npm install @fontsource-variable/vazirmatn @fontsource/lalezar
+      - name: Copy fonts
+        run: FONTS_FROM="$RUNNER_TEMP/fonts/node_modules" node scripts/copy-fonts.js
+      - name: Build Senso-Bar.apk
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          SENSO_KS_PASS: senso-bar-2026
+        run: bash mobile/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*.apk
+
+  release:
+    needs: [windows, android]
+    if: ${{ !cancelled() && (needs.windows.result == 'success' || needs.android.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish downloads
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.1.${{ github.run_number }}
+          name: Senso Bar 2.1.${{ github.run_number }}
+          make_latest: true
+          files: dist/*
+          body: |
+            **Windows (10/11):**
+            - `Senso-Bar-Setup-2.0.0.exe` installs Senso Bar with a desktop shortcut.
+            - `Senso-Bar-Portable-2.0.0.exe` runs without installing.
+
+            **Android:** `Senso-Bar.apk`. Open it on the phone and allow "Install unknown apps" for your browser or file manager when asked. Installing a newer version over the old one keeps your data.
+
+            Data stays on each device. Backups and Excel exports are in the app under **Backup** (پشتیبان): Windows saves them in Documents › Senso Bar, Android in Documents › SensoBar.

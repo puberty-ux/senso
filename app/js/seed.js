@@ -59,13 +59,18 @@
     ['green-tea', 'tea', 'چای سبز', 'Green tea', 40, '#A2C46E', 1, R('greentea', .004)],
     ['black-tea', 'tea', 'چای سیاه', 'Black tea', 40, '#A2482A', 1, R('blacktea', .005)],
   ];
+  const PHOTOS = ['shake-vanilla', 'shake-oreo', 'shake-strawberry', 'shake-lotus', 'shake-chocbanana', 'mojito', 'lemonade', 'banana-milk', 'energy-bomb',
+    'smoothie-strawberry', 'smoothie-mango', 'smoothie-kiwi', 'smoothie-berry', 'smoothie-banana', 'smoothie-mix',
+    'pancake-senso', 'pancake-nutella', 'pancake-honey', 'waffle-honey-nutella', 'waffle-senso', 'waffle-nutella', 'crepe'];
+  const photos = () => Object.fromEntries(PHOTOS.map(id => ['m-' + id, `img/items/${id}.jpg`]));
   root.SensoSeed = {
+    photos,
     ings: () => ING.map(([id, name, nameFa, qty, unit, min]) => ({ id: 'i-' + id, name, nameFa, qty, unit, min, cost: 0, supplier: '' })),
     menu: () => {
-      const ordIn = {};
+      const ordIn = {}, ph = photos();
       return MENU.map(([id, cat, fa, en, price, color, verify, recipe]) => ({
         id: 'm-' + id, cat, fa, en, price, color, verify: !!verify, active: true, cost: 0,
-        recipe: recipe.map(l => ({ ...l })), ord: (ordIn[cat] = (ordIn[cat] || 0) + 1),
+        recipe: recipe.map(l => ({ ...l })), ord: (ordIn[cat] = (ordIn[cat] || 0) + 1), photo: ph['m-' + id] || '',
       }));
     },
   };

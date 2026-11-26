@@ -7,9 +7,10 @@ Offline point of sale and back office for Senso Bar, in **Dari and English**. It
 - **Windows:** open [Releases](../../releases/latest) and download
   - `Senso-Bar-Setup-….exe` to install it with a desktop shortcut (Windows 10/11, 64-bit or 32-bit), or
   - `Senso-Bar-Portable-….exe` to run it without installing.
-- **Android:** open the app's web address in Chrome (see *Phone app* below), tap ⋮ → **Install app**. After the first open it works offline.
+- **Android:** download `Senso-Bar.apk` from the same page, open it, and allow installing from your browser or file manager when asked. Installing a newer APK over the old one keeps your data.
+- **Android without the APK:** open the web address in Chrome (see *Phone app* below), tap ⋮ → **Install app**.
 
-Every push to `main` builds a new Windows download automatically (GitHub Actions → *Build Windows app*).
+Every push to `main` builds new Windows and Android downloads automatically (GitHub Actions → *Build apps*).
 
 ## What it does
 
@@ -24,6 +25,7 @@ Every push to `main` builds a new Windows download automatically (GitHub Actions
 | **Stock** · گدام | Ingredient amounts that sales draw down. Receive stock (optionally recorded as an expense), log waste, count. |
 | **Buy** · خرید | What's running low, plus a shopping list to copy and send. |
 | **Make** · تهیه | Check whether there's enough to make a batch, and the day's prep list. |
+| **Backup** · پشتیبان | Save a backup now, automatic daily backups, the list of saved backups to restore or send, restore from a file, and Excel (CSV) exports: orders, items sold, daily totals, expenses, withdrawals, customers, stock, menu. |
 | **Settings** · تنظیمات | Language, calendar, Persian or Western digits, light/dark, shop and receipt details, 58/80 mm paper, tax, loyalty, owner PIN, backup and restore. |
 
 An **owner PIN** (optional) locks Reports, Money, Settings and voiding orders.
@@ -37,7 +39,14 @@ An **owner PIN** (optional) locks Reports, Money, Settings and voiding orders.
 
 ## Your data
 
-Data lives only on the device where it was entered (Windows and each phone keep separate records). Save a backup from Settings often and keep it on a flash drive. The Windows app also saves a backup every day to `Documents › Senso Bar Backups` and keeps the last 30.
+Data lives only on the device where it was entered (Windows and each phone keep separate records). The Windows and Android apps save a backup every day and keep the last 30:
+
+- Windows: `Documents › Senso Bar › Backups` (exports in `Documents › Senso Bar › Exports`)
+- Android: `Documents › SensoBar › Backups` (exports in `Documents › SensoBar › Exports`)
+
+On Android, **Send backup** shares the file to WhatsApp, Telegram, Google Drive or a computer. Restore any backup from the Backup screen.
+
+Item photos come from the shop's printed menus (`app/img/items`). To change one, open the item on the Menu screen and choose a photo.
 
 ## Phone app
 
@@ -61,5 +70,7 @@ Or open `app/index.html` directly in Chrome or Edge.
 | `app/js/i18n.js` | Dari and English wording |
 | `app/js/seed.js` | The starting menu and ingredients |
 | `app/css/app.css` | Look and layout (right-to-left aware) |
+| `app/js/files.js` | Saving backups and exports on Windows, Android and in the browser |
 | `electron/` | Windows wrapper: printing, file saving, daily backups |
+| `mobile/` | Android app (Capacitor): `build.sh` makes the APK; `senso-release.p12` signs it so updates install over each other |
 | `.github/workflows/` | Builds the Windows `.exe` and the phone app |

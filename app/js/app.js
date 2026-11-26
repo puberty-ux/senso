@@ -4,6 +4,7 @@
   const C = window.SensoCore, I = window.SensoI18n, ART = window.SensoArt, SEED = window.SensoSeed;
   const t = I.t;
   const native = window.sensoNative || null; // set by the Windows app
+  const FS = window.SensoFiles;
 
   let db = null, S = null;
   const U = {
@@ -28,6 +29,8 @@
   const expName = id => I.pick(S.settings.expenseCats.find(c => c.id === id)) || id;
   const look = m => C.cat(S, m.cat).look || 'glass';
   const art = m => ART.draw(look(m), m.color);
+  const pic = m => (m.photo ? `<img src="${esc(m.photo)}" alt="" loading="lazy" decoding="async" draggable="false">` : art(m));
+  const buzz = () => { try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) { /* no vibration */ } };
   const unitName = u => (I.lang === 'fa' ? ({ pcs: 'دانه', kg: 'کیلو', g: 'گرام', L: 'لیتر', ml: 'ملی‌لیتر', bunch: 'دسته', pack: 'بسته' }[u] || u) : u);
   const step = u => (['kg', 'L'].includes(u) ? 0.5 : ['g', 'ml'].includes(u) ? 50 : 1);
   function fmtDay(k, withWeekday = true) {
@@ -72,13 +75,19 @@
     prev: '<path d="m15 6-6 6 6 6"/>', next: '<path d="m9 6 6 6-6 6"/>',
     print: '<path d="M7 9V3h10v6M7 17H4v-7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v7h-3"/><path d="M7 14h10v7H7z"/>',
     download: '<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',
+    backup: '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 10v6m-3-3 3 3 3-3"/>',
+    share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
+    folder: '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>',
+    upload: '<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+    camera: '<path d="M4 8a2 2 0 0 1 2-2h2l2-2h4l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>',
   };
   // Persian zero looks like a dot, so Dari text uses a comma between parts instead of a middle dot.
   const dots = h => (I.lang === 'fa' ? h.replace(/ · /g, '، ') : h);
   const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
   const NAV = [
     ['sell', 'nav_sell', true], ['orders', 'nav_orders', true], ['reports', 'nav_reports', true, true], ['money', 'nav_money', true, true],
-    ['customers', 'nav_customers'], ['menu', 'nav_menu'], ['stock', 'nav_stock'], ['buy', 'nav_buy'], ['make', 'nav_make'], ['settings', 'nav_settings', false, true],
+    ['customers', 'nav_customers'], ['menu', 'nav_menu'], ['stock', 'nav_stock'], ['buy', 'nav_buy'], ['make', 'nav_make'], ['backup', 'nav_backup'], ['settings', 'nav_settings', false, true],
   ];
   const narrow = () => matchMedia('(max-width:860px)').matches;
   const isLocked = tab => !!S.settings.ownerPin && !U.unlocked && NAV.some(n => n[0] === tab && n[3]);
@@ -95,10 +104,20 @@
   }
   const setSettings = (patch, ok) => commit([{ store: 'settings', put: { ...S.settings, ...patch, shop: { ...S.settings.shop, ...(patch.shop || {}) } } }], ok);
   let backupT;
+  const lastBackup = () => { try { return +localStorage.getItem('senso-last-backup') || 0; } catch (_) { return 0; } };
+  const markBackup = () => { try { localStorage.setItem('senso-last-backup', String(Date.now())); } catch (_) { /* ignore */ } };
+  const backupName = () => `senso-backup-${today()}.json`;
   function scheduleBackup() {
-    if (!native || !native.autoBackup) return;
+    if (FS.kind === 'web' || S.settings.autoBackup === false) return;
     clearTimeout(backupT);
-    backupT = setTimeout(() => { try { native.autoBackup(C.exportJSON(S)); } catch (_) { /* ignore */ } }, 4000);
+    backupT = setTimeout(async () => {
+      try {
+        await FS.save('Backups', backupName(), C.exportJSON(S), 'application/json'); markBackup();
+        const old = (await FS.list('Backups')).map(f => f.name).filter(n => /^senso-backup-\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().reverse().slice(30);
+        for (const n of old) await FS.remove('Backups', n).catch(() => {});
+        if (U.tab === 'backup') render();
+      } catch (e) { console.warn('auto backup', e); }
+    }, 5000);
   }
 
   /* ---------- render ---------- */
@@ -115,7 +134,7 @@
     const a = document.activeElement, aid = a && a.id, sel = a && typeof a.selectionStart === 'number' ? a.selectionStart : null;
     const low = C.lowIngs(S).length;
     $('#nav').innerHTML = NAV.map(([k, lbl, primary, locked]) => `<button class="nv${primary ? '' : ' secondary'}" data-act="tab" data-id="${k}" ${U.tab === k ? 'aria-current="page"' : ''}>${svg(k)}${t(lbl)}${k === 'buy' && low ? `<span class="badge">${I.n(low)}</span>` : ''}${locked && isLocked(k) ? `<svg class="lock" viewBox="0 0 24 24">${ICON.lock}</svg>` : ''}</button>`).join('')
-      + `<button class="nv more${['customers', 'menu', 'stock', 'buy', 'make', 'settings'].includes(U.tab) ? '" aria-current="page' : ''}" data-act="more">${svg('more')}${t('nav_more')}${low ? `<span class="badge">${I.n(low)}</span>` : ''}</button>`;
+      + `<button class="nv more${['customers', 'menu', 'stock', 'buy', 'make', 'backup', 'settings'].includes(U.tab) ? '" aria-current="page' : ''}" data-act="more">${svg('more')}${t('nav_more')}${low ? `<span class="badge">${I.n(low)}</span>` : ''}</button>`;
     const langLbl = I.lang === 'fa' ? 'EN' : 'دری';
     $('#lang-btn').textContent = langLbl; $('#lang-btn-m').textContent = langLbl;
     $('#mname').textContent = I.lang === 'fa' ? (S.settings.shop.fa || S.settings.shop.name) : S.settings.shop.name;
@@ -154,7 +173,7 @@
     const c = U.cart.find(x => x.id === m.id); const cm = C.canMake(m, S);
     const flags = (cm === 0 ? `<span class="pill bad">${t('out')}</span>` : cm !== null && cm <= 5 ? `<span class="pill warn">${t('left', { n: I.n(cm) })}</span>` : '') + (m.verify ? `<span class="pill info">${t('check')}</span>` : '');
     return `<button class="tile${c ? ' in' : ''}${cm === 0 ? ' off' : ''}" style="--c:${esc(m.color)}" data-act="add" data-id="${esc(m.id)}" aria-label="${esc(itemName(m))}, ${M(m.price)}">
-      ${c ? `<span class="qty">${I.n(c.qty)}</span>` : ''}<span class="art">${art(m)}</span><span class="tfa" lang="fa">${esc(m.fa)}</span><span class="ten" lang="en">${esc(m.en)}</span>
+      ${c ? `<span class="qty">${I.n(c.qty)}</span>` : ''}<span class="art${m.photo ? ' photo' : ''}">${pic(m)}</span><span class="tfa" lang="fa">${esc(m.fa)}</span><span class="ten" lang="en">${esc(m.en)}</span>
       <span class="tfoot"><span class="price">${I.n(m.price)}<small>${esc(cur())}</small></span>${flags}</span></button>`;
   }
   function ticketBody() {
@@ -179,7 +198,7 @@
         <span>${cust ? esc(cust.name) : t('no_customer')}</span><span style="opacity:.6">${cust ? `${t('has_points', { n: I.n(cust.points || 0) })}${cust.balance > 0 ? ` · ${t('owes')} ${I.n(cust.balance)}` : ''}` : t('pick_customer')}</span></button>
       ${cust && cust.points > 0 ? `<label class="f">${t('points_use')} (${I.n(cust.points)})<input id="o-pts" data-bind="pointsUse" inputmode="numeric" value="${esc(o.pointsUse)}" placeholder="${I.d(0)}"></label>` : ''}
       <div class="pays">${pays.map(([id, l]) => `<button data-act="pay" data-id="${id}" aria-pressed="${o.pay === id}">${esc(l)}</button>`).join('')}</div>
-      ${o.pay === 'cash' ? `<label class="f">${t('received')}<input id="o-rec" data-bind="received" inputmode="decimal" value="${esc(o.received)}" placeholder="${I.n(p.total)}"></label>` : ''}
+      ${o.pay === 'cash' ? `<label class="f">${t('received')}<input id="o-rec" data-bind="received" inputmode="decimal" value="${esc(o.received)}" placeholder="${I.n(p.total)}"></label><div class="quick">${quickCash(p.total).map(v => `<button data-act="cashQuick" data-id="${v}">${v === p.total ? t('exact_amt') : I.n(v)}</button>`).join('')}</div>` : ''}
       <label class="f">${t('note')}<input id="o-note" data-bind="note" value="${esc(o.note)}" autocomplete="off"></label>
     </div>
     <div class="tk-tot">
@@ -192,6 +211,11 @@
     </div>
     <button class="charge" data-act="checkout">${t('complete')} <span class="num">${M(p.total)}</span></button>
     <div class="tk-actions"><button class="linkbtn" data-act="hold">${t('hold')}</button><button class="linkbtn" data-act="clearcart">${t('clear_order')}</button></div>`;
+  }
+  function quickCash(total) {
+    const out = [total];
+    for (const step_ of [50, 100, 500, 1000]) { const v = Math.ceil(total / step_) * step_; if (v > total && !out.includes(v)) out.push(v); }
+    return out.slice(0, 4);
   }
   function heldChips() {
     if (!S.parked.length) return '';
@@ -212,18 +236,32 @@
     const usedCats = cats.filter(c => S.menu.some(m => m.active && m.cat === c.key));
     const catColor = k => (S.menu.find(m => m.cat === k) || {}).color;
     return `<div class="sell"><div>
-      <div class="head" style="margin-bottom:12px"><div><h1>${fmtDay(today())}</h1><p class="today-line">${t('today_so_far')}: <b>${t('orders_n', { n: I.n(live.length), c: live.length })}</b> · <b>${M(live.reduce((s, o) => s + o.total, 0))}</b></p></div></div>
+      <div class="hello"><div><p class="greet">${greeting()}</p><h1>${fmtDay(today())}</h1></div>
+        <div class="today-pills"><span class="tp"><b class="num">${I.n(live.length)}</b>${t('orders')}</span><span class="tp gold"><b class="num">${I.n(live.reduce((s, o) => s + o.total, 0))}</b>${esc(cur())}</span>${S.parked.length ? `<span class="tp"><b class="num">${I.n(S.parked.length)}</b>${t('held_orders')}</span>` : ''}</div></div>
+      ${popularRow(live)}
       <div class="sell-top"><div class="find">${svg('search')}<input id="find" data-bind="q" placeholder="${t('find_item')}" value="${esc(U.q)}" autocomplete="off"></div></div>
       <div class="chips">${chip('cat', 'all', U.cat === 'all', t('everything'))}${usedCats.map(c => chip('cat', c.key, U.cat === c.key, esc(I.pick(c)), catColor(c.key))).join('')}</div>
       ${body}</div>
       ${narrow() ? '' : `<div class="ticket-col"><div class="ticket" id="ticket"><div class="tk-h"><h2>${t('new_order')}</h2><span class="no">#${I.n(nextNo())}</span></div>${ticketBody()}</div></div>`}</div>`;
   };
+  function greeting() {
+    const h = new Date().getHours();
+    return t(h < 5 ? 'good_night' : h < 12 ? 'good_morning' : h < 17 ? 'good_afternoon' : h < 21 ? 'good_evening' : 'good_night');
+  }
+  function popularRow(live) {
+    const by = {}; live.forEach(o => o.items.forEach(i => (by[i.id] = (by[i.id] || 0) + i.qty)));
+    let ids = Object.entries(by).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+    if (ids.length < 4) { const all = {}; S.orders.slice(-400).forEach(o => o.status !== 'void' && o.items.forEach(i => (all[i.id] = (all[i.id] || 0) + i.qty))); ids = [...new Set([...ids, ...Object.entries(all).sort((a, b) => b[1] - a[1]).map(x => x[0])])]; }
+    const items = ids.map(id => C.byId(S.menu, id)).filter(m => m && m.active).slice(0, 8);
+    if (!items.length) return '';
+    return `<div class="popular"><span class="pl">${t('popular')}</span><div class="chips">${items.map(m => `<button class="pchip" data-act="add" data-id="${esc(m.id)}" style="--c:${esc(m.color)}"><span class="pimg">${pic(m)}</span>${esc(itemName(m))}<b class="num">${I.n(m.price)}</b></button>`).join('')}</div></div>`;
+  }
   function fly(fromEl, color) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches || !fromEl) return;
     const target = $('#ticket') && $('#ticket').offsetParent ? $('#ticket') : $('#orderbar button');
     if (!target) return;
     const a = fromEl.getBoundingClientRect(), b = target.getBoundingClientRect();
-    const dot = document.createElement('div'); dot.className = 'flyer'; dot.style.background = color;
+    const dot = document.createElement('div'); dot.className = 'flyer'; dot.style.background = color; const src = fromEl.querySelector('img'); if (src) { dot.style.backgroundImage = `url("${src.getAttribute('src')}")`; dot.classList.add('pic'); }
     const x0 = a.left + a.width / 2 - 9, y0 = a.top + 50, x1 = b.left + b.width / 2 - 9, y1 = b.top + 40;
     dot.style.left = x0 + 'px'; dot.style.top = y0 + 'px'; document.body.appendChild(dot);
     const dx = x1 - x0, dy = y1 - y0;
@@ -438,7 +476,7 @@
       if (!its.length) continue;
       h += `<section class="band"><div class="band-h"><span class="fa-name" lang="fa">${esc(c.fa || c.en)}</span><span>${esc(c.en)}</span></div><div class="list">${its.map(m => {
         const cm = C.canMake(m, S), cost = C.itemCost(m, S), mg = cost > 0 && m.price > 0 ? Math.round((m.price - cost) / m.price * 100) : null;
-        return `<button class="mi${m.active ? '' : ' off'}" style="--c:${esc(m.color)}" data-act="editItem" data-id="${esc(m.id)}"><span class="sw">${art(m)}</span>
+        return `<button class="mi${m.active ? '' : ' off'}" style="--c:${esc(m.color)}" data-act="editItem" data-id="${esc(m.id)}"><span class="sw">${pic(m)}</span>
           <span class="nm"><span class="fa-name" lang="fa">${esc(m.fa)}</span><small lang="en">${esc(m.en)}</small></span><span class="pr">${M(m.price)}</span>
           <span class="meta">${m.recipe.length ? `<span>${t('recipe')}: ${I.n(m.recipe.length)}</span>` : `<span class="pill mute">${t('no_recipe')}</span>`}${cm !== null ? (cm === 0 ? ` <span class="pill bad">${t('cant_make')}</span>` : ` · ${t('enough_for', { n: I.n(cm) })}`) : ''}${mg !== null ? ` · <span class="pill ${mg >= 50 ? 'ok' : mg >= 25 ? 'warn' : 'bad'}">${t('margin')} ${I.n(mg)}%</span>` : ''}${m.verify ? ` <span class="pill info">${t('check')}</span>` : ''}${m.active ? '' : ` <span class="pill mute">${t('hidden')}</span>`}</span></button>`;
       }).join('')}</div></section>`;
@@ -464,6 +502,9 @@
       <label class="f">${t('manual_cost')}<input id="e-cost" inputmode="decimal" value="${esc(m.cost || 0)}"></label></div>
       <div id="e-newcat" class="three" hidden><label class="f">${t('name_fa')}<input id="e-cat-fa" dir="rtl"></label><label class="f">${t('name_en')}<input id="e-cat-en" dir="ltr"></label>
         <label class="f">${t('colour')}<select id="e-cat-look">${ART.LOOKS.map(l => `<option>${l}</option>`).join('')}</select></label></div>
+      <div class="photo-row"><span class="photo-prev${m.photo ? ' has' : ''}" id="e-photo" style="--c:${esc(m.color)}">${pic(m)}</span>
+        <label class="btn sm" style="cursor:pointer">${svg('camera')}${t('choose_photo')}<input type="file" accept="image/*" data-change="itemPhoto" hidden></label>
+        <button class="btn sm quiet" data-act="rmPhoto">${t('remove_photo')}</button></div>
       <div class="colorrow"><input type="color" id="e-color" value="${esc(m.color)}" aria-label="${t('colour')}"><span class="muted">${t('colour')}</span>${m.recipe.length ? `<span class="grow"></span><span class="pill gold">${t('cost')} ${M(C.recipeCost(m, S))}</span>` : ''}</div>
       <label class="ck"><input type="checkbox" id="e-active" ${m.active ? 'checked' : ''}> ${t('show_on_sell')}</label>
       <label class="ck"><input type="checkbox" id="e-verify" ${m.verify ? 'checked' : ''}> ${t('mark_check')}</label>
@@ -584,13 +625,84 @@
       <label class="f">${t('opening_cash')}<input id="st-open" inputmode="decimal" value="${esc(I.d(s.openingCash || 0))}"></label>
       <label class="f">${t('owner_pin')}<input id="st-pin" inputmode="numeric" type="password" autocomplete="new-password" value="${esc(s.ownerPin)}" maxlength="8"></label><p class="hint">${t('pin_hint')}</p>
       <button class="btn go" data-act="saveMore">${t('save')}</button></div></div>
-    <div class="card"><h3>${t('data')}</h3><p class="hint">${t('backup_hint')}${native ? ' ' + t('auto_backup') : ''}</p><div class="form">
-      <button class="btn go" data-act="backup">${svg('download')}${t('backup')}</button>
-      <label class="btn" style="cursor:pointer">${t('restore')}<input type="file" id="restore-file" accept=".json,application/json" data-change="restore" hidden></label>
-      <p class="hint">${t('restore_warn')}</p>
-      <button class="btn danger quiet" data-act="eraseAll">${t('reset_all')}</button><p class="hint">${t('erase_warn')}</p>
-      <p class="hint">Senso Bar 2.0 · ${native ? 'Windows' : 'Web'}</p></div></div></div>`;
+    <div class="card"><h3>${t('data')}</h3><p class="hint">${t('backup_hint')}</p><button class="btn go" data-act="tab" data-id="backup">${svg('backup')}${t('nav_backup')}</button>
+      <p class="hint" style="margin-top:12px">Senso Bar 2.1 · ${FS.kind === 'win' ? 'Windows' : FS.kind === 'android' ? 'Android' : 'Web'}</p></div></div></div>`;
   };
+
+  /* ---------- BACKUP & EXPORT ---------- */
+  async function loadBackups() {
+    U.backups = null;
+    try { U.where = await FS.where(); U.backups = FS.kind === 'web' ? [] : (await FS.list('Backups')).sort((a, b) => (a.name < b.name ? 1 : -1)); }
+    catch (_) { U.backups = []; }
+    if (U.tab === 'backup') render();
+  }
+  const fileDate = n => { const m = /(\d{4}-\d{2}-\d{2})/.exec(n); return m ? fmtDay(m[1]) : n; };
+  const kb = b => (b ? (b > 1048576 ? `${I.q(b / 1048576)} MB` : `${I.n(Math.max(1, b / 1024))} KB`) : '');
+  const EXPORTS = ['orders_all', 'orders_month', 'items', 'daily', 'expenses', 'withdrawals', 'customers', 'stock', 'menu'];
+  V.backup = () => {
+    if (U.backups === undefined) loadBackups();
+    const last = lastBackup();
+    const auto = S.settings.autoBackup !== false;
+    const size = C.exportJSON(S).length;
+    const list = U.backups || [];
+    return `<div class="head"><div><h1>${t('backup_title')}</h1><p class="sub">${t('data_counts', { o: I.n(S.orders.length), c: I.n(S.customers.length), m: I.n(S.menu.length) })} · ${kb(size)}</p></div></div>
+    <div class="${FS.kind === 'web' ? 'stack' : 'grid2'}">
+      <div class="card bk-hero"><div class="bk-icon">${svg('backup')}</div>
+        <h3>${t('backup_safe')}</h3>
+        <p class="hint">${FS.kind === 'web' ? t('web_backup_hint') : `${t('saved_in')}: <b dir="ltr">${esc(U.where || '…')}</b>`}</p>
+        <div class="bk-last"><span>${t('last_backup')}</span><b>${last ? `${shortDay(C.dayKey(last))} ${fmtTime(last)}` : t('never')}</b></div>
+        <div class="actions"><button class="btn go" data-act="backupNow">${svg('download')}${t('backup_now')}</button>
+          ${FS.canShare ? `<button class="btn" data-act="shareBackup">${svg('share')}${t('share_backup')}</button>` : ''}
+          ${FS.canOpenFolder ? `<button class="btn" data-act="openFolder" data-id="Backups">${svg('folder')}${t('open_folder')}</button>` : ''}</div>
+        ${FS.canShare ? `<p class="hint">${t('android_share_hint')}</p>` : ''}
+        ${FS.kind !== 'web' ? `<label class="ck" style="margin-top:6px"><input type="checkbox" data-act="toggleAuto" ${auto ? 'checked' : ''}> ${t('auto_daily')}</label>` : ''}
+        <label class="btn quiet" style="cursor:pointer;margin-top:4px">${svg('upload')}${t('restore')}<input type="file" id="restore-file" accept=".json,application/json" data-change="restore" hidden></label>
+        <p class="hint">${t('restore_warn')}</p></div>
+      ${FS.kind === 'web' ? '' : `<div class="card"><h3>${t('saved_backups')}</h3>
+        ${U.backups === null ? `<p class="muted">…</p>` : list.length ? `<div class="list" style="margin-top:10px">${list.slice(0, 40).map(f => `<div class="er"><div><b>${esc(fileDate(f.name))}</b><small dir="ltr">${esc(f.name)} · ${kb(f.size)}</small></div>
+          <span class="row" style="gap:6px">${FS.canShare ? `<button class="icon-btn" data-act="shareSaved" data-id="${esc(f.name)}" aria-label="${t('share')}">${svg('share')}</button>` : ''}<button class="btn sm" data-act="restoreSaved" data-id="${esc(f.name)}">${t('restore_this')}</button></span>
+          <button class="x" data-act="delSaved" data-id="${esc(f.name)}" aria-label="${t('delete')}">×</button></div>`).join('')}</div>` : `<div style="margin-top:10px">${empty(t('no_backups'), '')}</div>`}</div>`}
+    </div>
+    <div class="card" style="margin-top:18px"><div class="row" style="justify-content:space-between"><div><h3>${t('exports')}</h3><p class="hint" style="margin:2px 0 0">${t('exports_hint')}</p></div>${FS.canOpenFolder ? `<button class="btn sm" data-act="openFolder" data-id="Exports">${svg('folder')}${t('open_folder')}</button>` : ''}</div>
+      <div class="exports">${EXPORTS.map(k => `<div class="xrow"><span class="xi">${svg('file')}</span><b>${t('exp_' + k)}</b>
+        <span class="row" style="gap:6px">${FS.canShare ? `<button class="icon-btn" data-act="exportShare" data-id="${k}" aria-label="${t('share')}">${svg('share')}</button>` : ''}<button class="btn sm" data-act="exportSave" data-id="${k}">${svg('download')}CSV</button></span></div>`).join('')}</div></div>
+    <div class="card" style="margin-top:18px"><button class="btn danger quiet" data-act="eraseAll">${t('reset_all')}</button><p class="hint" style="margin-top:6px">${t('erase_warn')}</p></div>`;
+  };
+  function buildExport(kind) {
+    const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = rows => '\ufeff' + rows.map(r => r.map(q).join(',')).join('\r\n');
+    const hj = d => (C.hasHijri ? (({ y, m, d: dd }) => `${y}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`)(C.hijri(d)) : '');
+    const month = new Set(C.period('month', today(), cal()).days);
+    const tag = today();
+    if (kind === 'orders_all' || kind === 'orders_month') {
+      const rows = [['order_no', 'date', 'date_hijri', 'time', 'service', 'table', 'customer', 'payment', 'status', 'item_en', 'item_fa', 'qty', 'unit_price', 'line_total', 'order_discount', 'order_total', 'note']];
+      for (const o of S.orders) {
+        if (kind === 'orders_month' && !month.has(o.day)) continue;
+        const cu = o.customer ? (C.byId(S.customers, o.customer) || {}).name : '';
+        for (const i of o.items) rows.push([o.no, o.day, hj(o.day), new Date(o.at).toTimeString().slice(0, 5), o.service, o.table, cu, o.pay, o.status, i.en, i.fa, i.qty, i.price, i.qty * i.price, o.discount, o.total, o.note]);
+      }
+      return { name: `senso-${kind === 'orders_all' ? 'orders-all' : 'orders-month'}-${tag}.csv`, text: csv(rows) };
+    }
+    if (kind === 'items') {
+      const r = C.report(S, [...month]);
+      return { name: `senso-items-sold-${tag}.csv`, text: csv([['item_en', 'item_fa', 'qty', 'amount'], ...r.top.map(x => [x.en, x.fa, x.qty, x.amount])]) };
+    }
+    if (kind === 'daily') {
+      const rows = [['date', 'date_hijri', 'orders', 'sales', 'ingredient_cost', 'expenses', 'withdrawals', 'profit']];
+      for (const d of C.period('year', today(), cal()).days) {
+        if (d > today()) break;
+        const r = C.report(S, [d]);
+        if (!r.orders && !r.expenses && !r.withdrawals) continue;
+        rows.push([d, hj(d), r.orders, r.net, C.r2(r.cogs), r.expenses, r.withdrawals, C.r2(r.profit)]);
+      }
+      return { name: `senso-daily-totals-${tag}.csv`, text: csv(rows) };
+    }
+    if (kind === 'expenses') return { name: `senso-expenses-${tag}.csv`, text: csv([['date', 'date_hijri', 'category', 'amount', 'paid_from', 'note'], ...S.expenses.slice().sort((a, b) => a.at - b.at).map(e => [e.day, hj(e.day), expName(e.cat), e.amount, e.method, e.note])]) };
+    if (kind === 'withdrawals') return { name: `senso-withdrawals-${tag}.csv`, text: csv([['date', 'date_hijri', 'person', 'amount', 'reason'], ...S.withdrawals.slice().sort((a, b) => a.at - b.at).map(w => [w.day, hj(w.day), w.person, w.amount, w.note])]) };
+    if (kind === 'customers') return { name: `senso-customers-${tag}.csv`, text: csv([['name', 'phone', 'owes', 'points', 'visits', 'note'], ...S.customers.map(c => [c.name, c.phone, c.balance || 0, c.points || 0, c.visits || 0, c.note])]) };
+    if (kind === 'stock') return { name: `senso-stock-${tag}.csv`, text: csv([['ingredient_en', 'ingredient_fa', 'in_stock', 'unit', 'reorder_at', 'cost_per_unit', 'value', 'supplier'], ...S.ings.map(i => [i.name, i.nameFa, i.qty, i.unit, i.min, i.cost || 0, C.r2((i.qty || 0) * (i.cost || 0)), i.supplier])]) };
+    return { name: `senso-menu-${tag}.csv`, text: csv([['item_fa', 'item_en', 'category', 'price', 'cost', 'shown'], ...S.menu.map(m => [m.fa, m.en, catName(m.cat), m.price, C.itemCost(m, S), m.active ? 'yes' : 'no'])]) };
+  }
 
   /* ---------- receipts and printing ---------- */
   function receiptHTML(o) {
@@ -610,6 +722,7 @@
     $('#print-area').innerHTML = `<style>@page{size:${w}mm auto;margin:0}#print-area .rc{width:${w}mm;box-shadow:none;margin:0;max-width:none}</style>${html}`;
     try {
       if (native && native.print) await native.print({ silent: !!S.settings.silentPrint });
+      else if (FS.kind === 'android') { const tx = $('#print-area').innerText; await FS.shareText(tx, t('print_receipt')); }
       else window.print();
     } catch (e) { toast(String(e && e.message || e), true); }
   }
@@ -622,7 +735,7 @@
   }
   function openReceipt(o, fresh) {
     U.edit = { kind: 'order', obj: o };
-    openSheet('receipt', `<div class="sh"><h2>${fresh ? t('order_done', { n: I.n(o.no) }) : '#' + I.n(o.no)}</h2><button class="x" data-act="close" aria-label="${t('close')}">×</button></div>
+    openSheet('receipt', `${fresh ? `<div class="done"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg><div><b>${M(o.total)}</b><span>${esc(payName(o.pay))}${o.change ? ' · ' + t('change') + ' ' + M(o.change) : ''}</span></div></div>` : ''}<div class="sh"><h2>${fresh ? t('order_done', { n: I.n(o.no) }) : '#' + I.n(o.no)}</h2><button class="x" data-act="close" aria-label="${t('close')}">×</button></div>
       <div class="preview-r">${receiptHTML(o)}</div>
       <div class="actions"><button class="btn go" data-act="printReceipt">${svg('print')}${t('print_receipt')}</button><button class="btn" data-act="copyReceipt">${t('copy_text')}</button>
       ${fresh ? `<button class="btn ink" data-act="close">${t('next_order')}</button>` : o.status !== 'void' ? `<button class="btn danger quiet" data-act="voidOrder">${t('void_order')}</button>` : ''}</div>
@@ -638,11 +751,12 @@
       <div class="r big"><span>${t('profit')}</span><span>${M(r.profit)}</span></div>${row(t('withdrawals'), M(r.withdrawals))}<div class="cut"></div>
       ${r.top.slice(0, 10).map(x => row(`${esc(x.fa)}`, `${I.n(x.qty)} · ${I.n(x.amount)}`)).join('')}</div>`;
   }
-  async function saveFile(name, text, mime) {
-    if (native && native.saveFile) { try { const ok = await native.saveFile(name, text); if (ok) toast(t('saved')); } catch (e) { toast(String(e.message || e), true); } return; }
-    const url = URL.createObjectURL(new Blob([text], { type: mime || 'application/octet-stream' }));
-    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  async function saveFile(name, text, mime, folder = 'Exports') {
+    try {
+      const where = await FS.save(folder, name, text, mime);
+      if (FS.kind !== 'web') toast(t('saved_to', { w: FS.kind === 'win' ? where : (await FS.where()) + '/' + folder }));
+      return where;
+    } catch (e) { toast(t('save_failed') + ' ' + String(e && e.message || e), true); return null; }
   }
   async function copy(text, ok) {
     try { await navigator.clipboard.writeText(text); toast(ok); }
@@ -677,7 +791,7 @@
   const val = id => (document.getElementById(id) || {}).value ?? '';
   const ACT = {
     tab: id => { if (isLocked(id)) { pinSheet(() => go(id)); return; } go(id); },
-    more: () => openSheet('more', `<div class="sh"><h2>${t('nav_more')}</h2><button class="x" data-act="close" aria-label="${t('close')}">×</button></div><div class="more-grid">${['customers', 'menu', 'stock', 'buy', 'make', 'settings'].map(k => `<button data-act="moreGo" data-id="${k}">${svg(k)}${t('nav_' + k)}</button>`).join('')}</div>`),
+    more: () => openSheet('more', `<div class="sh"><h2>${t('nav_more')}</h2><button class="x" data-act="close" aria-label="${t('close')}">×</button></div><div class="more-grid">${['customers', 'menu', 'stock', 'buy', 'make', 'backup', 'settings'].map(k => `<button data-act="moreGo" data-id="${k}">${svg(k)}${t('nav_' + k)}</button>`).join('')}</div>`),
     moreGo: id => { closeSheet(); ACT.tab(id); },
     lang: () => setSettings({ lang: S.settings.lang === 'fa' ? 'en' : 'fa', digits: S.settings.lang === 'fa' ? 'en' : 'fa', calendar: S.settings.lang === 'fa' ? S.settings.calendar : 'hijri' }).then(() => { applyLook(); U.anim = true; render(); }),
     theme: () => { const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; setSettings({ theme: dark ? 'light' : 'dark' }).then(applyLook); },
@@ -685,9 +799,10 @@
     cat: id => { U.cat = id; render(); },
     add: (id, el) => {
       const c = U.cart.find(x => x.id === id); if (c) c.qty++; else U.cart.push({ id, qty: 1 });
-      U.lastAdded = id; const m = C.byId(S.menu, id); render(); U.lastAdded = null;
+      U.lastAdded = id; const m = C.byId(S.menu, id); buzz(); render(); U.lastAdded = null;
       fly(document.querySelector(`.tile[data-id="${CSS.escape(id)}"]`) || el, m ? m.color : '#F2B632');
     },
+    cashQuick: id => { U.ord.received = String(id); render(); },
     inc: id => { const c = U.cart.find(x => x.id === id); if (c) c.qty++; render(); },
     dec: id => { const c = U.cart.find(x => x.id === id); if (!c) return; if (--c.qty <= 0) U.cart = U.cart.filter(x => x !== c); render(); },
     clearcart: (id, el) => armed(el, () => { U.cart = []; U.ord = blankOrder(); render(); }),
@@ -869,13 +984,26 @@
       paper: +val('st-paper') || 80, currency: val('st-cur').trim() || '؋', taxRate: C.clamp(C.num(val('st-tax')), 0, 100), silentPrint: !!($('#st-silent') && $('#st-silent').checked) }, t('saved')).then(applyLook),
     saveMore: () => setSettings({ pointsPer100: Math.max(0, C.num(val('st-pp'))), pointValue: Math.max(0, C.num(val('st-pv'))), openingCash: Math.max(0, C.num(val('st-open'))), ownerPin: C.ascii(val('st-pin')).replace(/\D/g, '').slice(0, 8) }, t('saved')).then(() => { U.unlocked = true; }),
     lockNow: () => { U.unlocked = false; go('sell'); },
-    backup: () => saveFile(`senso-backup-${today()}.json`, C.exportJSON(S), 'application/json'),
+    backup: () => ACT.backupNow(),
+    backupNow: async () => { const w = await saveFile(backupName(), C.exportJSON(S), 'application/json', 'Backups'); if (w) { markBackup(); loadBackups(); } },
+    shareBackup: () => FS.share(backupName(), C.exportJSON(S), t('share_backup')).catch(e => toast(String(e.message || e), true)),
+    openFolder: id => FS.openFolder(id).catch(e => toast(String(e.message || e), true)),
+    toggleAuto: (id, el) => setSettings({ autoBackup: el.checked }, t('saved')),
+    shareSaved: async id => { try { FS.share(id, await FS.read('Backups', id), t('share_backup')); } catch (e) { toast(String(e.message || e), true); } },
+    restoreSaved: (id, el) => armed(el, async () => {
+      try { const s = C.importJSON(await FS.read('Backups', id)); await C.wipeAndLoad(db, s); S = s; applyLook(); toast(t('restored')); go('sell'); }
+      catch (_) { toast(t('not_backup'), true); }
+    }),
+    delSaved: (id, el) => armed(el, async () => { await FS.remove('Backups', id).catch(() => {}); loadBackups(); }),
+    exportSave: id => { const f = buildExport(id); saveFile(f.name, f.text, 'text/csv'); },
+    exportShare: id => { const f = buildExport(id); FS.share(f.name, f.text, t('exp_' + id)).catch(e => toast(String(e.message || e), true)); },
+    rmPhoto: () => { syncItem(); U.edit.obj.photo = ''; $('#e-photo').innerHTML = pic(U.edit.obj); },
     eraseAll: (id, el) => armed(el, async () => { const fresh = seedState(); fresh.settings = { ...fresh.settings, lang: S.settings.lang, digits: S.settings.digits, calendar: S.settings.calendar, theme: S.settings.theme, shop: S.settings.shop }; await C.wipeAndLoad(db, fresh); S = fresh; U.cart = []; U.ord = blankOrder(); toast(t('deleted')); go('sell'); }),
   };
   function pickRows(list) {
     return list.length ? list.slice(0, 50).map(c => `<button class="orow" data-act="setCustomer" data-id="${esc(c.id)}"><span class="avatar" style="--c:${hue(c.name)};width:38px;height:38px;font-size:15px">${esc(initials(c.name))}</span><span class="what"><div>${esc(c.name)}</div><small>${esc(I.d(c.phone || ''))} ${t('has_points', { n: I.n(c.points || 0) })}</small></span><span class="tot">${c.balance > 0 ? `<span class="pill bad">${M(c.balance)}</span>` : ''}</span></button>`).join('') : `<div style="padding:16px" class="muted">${t('no_customers')}</div>`;
   }
-  function go(tab) { U.tab = tab; U.anim = true; if (location.hash.slice(1) !== tab) history.replaceState(null, '', '#' + tab); closeSheet(); render(); scrollTo(0, 0); }
+  function go(tab) { U.tab = tab; U.anim = true; if (tab === 'backup') U.backups = undefined; if (location.hash.slice(1) !== tab) history.replaceState(null, '', '#' + tab); closeSheet(); render(); scrollTo(0, 0); }
   const BIND = {
     q: el => { U.q = el.value; render(); }, ordersQ: el => { U.ordersQ = el.value; render(); }, stockQ: el => { U.stockQ = el.value; render(); }, custQ: el => { U.custQ = el.value; render(); },
     table: el => { U.ord.table = el.value; }, note: el => { U.ord.note = el.value; },
@@ -890,6 +1018,19 @@
   const CHANGE = {
     ordersDay: el => { if (el.value) { U.ordersDay = el.value; render(); } },
     closeDay: el => { if (el.value) { U.closeDay = el.value; U.closeCounted = null; U.closeOpening = null; render(); } },
+    itemPhoto: el => {
+      const f = el.files && el.files[0]; if (!f) return;
+      const img = new Image(); const url = URL.createObjectURL(f);
+      img.onload = () => {
+        const n = 320, cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+        const s0 = Math.min(img.naturalWidth, img.naturalHeight);
+        cv.getContext('2d').drawImage(img, (img.naturalWidth - s0) / 2, (img.naturalHeight - s0) / 2, s0, s0, 0, 0, n, n);
+        U.edit.obj.photo = cv.toDataURL('image/jpeg', 0.82); URL.revokeObjectURL(url);
+        $('#e-photo').innerHTML = pic(U.edit.obj);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast(t('save_failed'), true); };
+      img.src = url; el.value = '';
+    },
     eCat: el => { $('#e-newcat').hidden = el.value !== '__new'; },
     rIng: el => { const i = C.byId(S.ings, el.value); const u = document.getElementById('r-u-' + el.dataset.id); if (u) u.textContent = i ? unitName(i.unit) : ''; },
     restore: async el => {
@@ -934,6 +1075,8 @@
       db = await C.openDB();
       const r = await C.loadAll(db);
       if (!r.seeded) { S = seedState(); await C.wipeAndLoad(db, S); } else S = r.state;
+      const P = SEED.photos(); const fix = S.menu.filter(m => m.photo === undefined && P[m.id]).map(m => ({ store: 'menu', put: { ...m, photo: P[m.id] } }));
+      if (fix.length) { C.apply(S, fix); await C.save(db, fix); }
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     } catch (e) {
       console.error(e); db = null; S = seedState();
@@ -944,7 +1087,7 @@
     U.tab = NAV.some(n => n[0] === h) && !isLocked(h) ? h : 'sell';
     render();
     scheduleBackup();
-    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator && location.protocol === 'https:' && FS.kind === 'web') navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   start();
   window.__senso = { get state() { return S; }, U };

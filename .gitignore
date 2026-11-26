@@ -2,3 +2,5 @@ node_modules/
 dist/
 app/fonts/*.woff2
 *.tmp
+mobile/www/
+mobile/android/

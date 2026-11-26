@@ -1,0 +1,13 @@
+{
+  "name": "senso-bar-android",
+  "private": true,
+  "description": "Builds the Senso Bar Android app (APK) from ../app with Capacitor.",
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/filesystem": "^6.0.2",
+    "@capacitor/share": "^6.0.3",
+    "sharp": "^0.33.5"
+  }
+}
