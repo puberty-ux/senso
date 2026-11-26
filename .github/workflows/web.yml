@@ -26,8 +26,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       - name: Get offline fonts (optional)
@@ -39,7 +39,7 @@ jobs:
       - name: Copy fonts
         run: FONTS_FROM="$RUNNER_TEMP/fonts/node_modules" node scripts/copy-fonts.js
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: app
       - id: deployment
