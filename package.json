@@ -1,0 +1,43 @@
+{
+  "name": "senso-bar",
+  "productName": "Senso Bar",
+  "version": "2.0.0",
+  "description": "Offline point of sale and back office for Senso Bar, in Dari and English.",
+  "main": "electron/main.js",
+  "author": "Senso Bar",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/core.test.js",
+    "fonts": "node scripts/copy-fonts.js",
+    "dist": "npm run fonts && electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "af.sensobar.pos",
+    "productName": "Senso Bar",
+    "copyright": "Senso Bar",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["electron/**", "app/**", "build/icon.png", "package.json"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64", "ia32"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Senso Bar",
+      "artifactName": "Senso-Bar-Setup-${version}.${ext}"
+    },
+    "portable": { "artifactName": "Senso-Bar-Portable-${version}.${ext}" }
+  }
+}

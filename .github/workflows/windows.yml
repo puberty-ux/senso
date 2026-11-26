@@ -1,0 +1,44 @@
+name: Build Windows app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm install
+      - name: Get offline fonts (optional)
+        continue-on-error: true
+        run: npm install --no-save @fontsource-variable/vazirmatn @fontsource/lalezar
+      - name: Test
+        run: npm test
+      - name: Build Senso Bar.exe
+        run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Senso-Bar-Windows
+          path: dist/*.exe
+      - name: Publish download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.${{ github.run_number }}
+          name: Senso Bar 2.0.${{ github.run_number }}
+          make_latest: true
+          files: dist/*.exe
+          body: |
+            **Download one of these:**
+            - `Senso-Bar-Setup-2.0.0.exe` installs Senso Bar with a desktop shortcut (64-bit and 32-bit Windows 10/11).
+            - `Senso-Bar-Portable-2.0.0.exe` runs without installing (64-bit).
+
+            Your data stays on the computer. A backup is saved every day in Documents › Senso Bar Backups.

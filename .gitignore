@@ -1,4 +1,4 @@
-/target
-/senso-data.json
-/senso-data.json.tmp
+node_modules/
+dist/
+app/fonts/*.woff2
 *.tmp

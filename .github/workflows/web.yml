@@ -1,0 +1,45 @@
+name: Publish phone app
+
+# Puts the app on GitHub Pages so Android phones can install it from Chrome
+# (menu ⋮ → Install app). After the first open it works offline.
+# One-time setup: repo Settings → Pages → Source: GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Get offline fonts (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/fonts" && cd "$RUNNER_TEMP/fonts"
+          npm init -y >/dev/null
+          npm install @fontsource-variable/vazirmatn @fontsource/lalezar
+      - name: Copy fonts
+        run: FONTS_FROM="$RUNNER_TEMP/fonts/node_modules" node scripts/copy-fonts.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deployment
+        uses: actions/deploy-pages@v4

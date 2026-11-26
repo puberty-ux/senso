@@ -1,90 +1,65 @@
-# Senso Bar
+# Senso Bar · سنسو بار
 
-Point-of-sale and back office for Senso Bar (سنسو بار), written in Rust.
+Offline point of sale and back office for Senso Bar, in **Dari and English**. It runs on a Windows computer as a normal program, and on Android phones and tablets as an installed app. It needs no internet and no server: everything is saved on the device.
 
-- **Sell:** tap drinks and desserts to build an order, add a table, note or discount, and complete it. A receipt opens ready to print.
-- **Orders:** each day's orders, money taken by hour, best sellers, reprint or void an order, export to CSV.
-- **Menu:** names in Dari and English, prices, a colour for each item's drawing, and a recipe per item.
-- **Stock:** every sale takes its recipe ingredients out of stock; voiding an order puts them back.
-- **Buy:** what's running low, plus a shopping list. Ticking a stock item adds it to stock.
-- **Make:** check whether you have enough to make a batch, and keep the day's prep list.
+## Download
 
-The app is one program with no outside libraries. It runs a small web server on the shop computer, and any phone or tablet on the same Wi-Fi can use it in a browser.
+- **Windows:** open [Releases](../../releases/latest) and download
+  - `Senso-Bar-Setup-….exe` to install it with a desktop shortcut (Windows 10/11, 64-bit or 32-bit), or
+  - `Senso-Bar-Portable-….exe` to run it without installing.
+- **Android:** open the app's web address in Chrome (see *Phone app* below), tap ⋮ → **Install app**. After the first open it works offline.
 
-## Run it
+Every push to `main` builds a new Windows download automatically (GitHub Actions → *Build Windows app*).
 
-Install Rust from <https://rustup.rs>, then:
+## What it does
 
-```sh
-cargo run --release
-```
+| Section | |
+|---|---|
+| **Sell** · فروش | Tap items to build an order. Dine in, takeaway or delivery; table; discount in ؋ or %; customer; cash, card, mobile money or credit (قرض); change calculator; hold an order and come back to it; print the receipt. |
+| **Orders** · سفارش‌ها | Every order by day, search, reprint, void with a reason (stock goes back). |
+| **Reports** · گزارش | Daily, monthly and yearly sales in the Solar Hijri or Gregorian calendar, compared with the period before. Sales by hour, day or month; best sellers; payment methods; categories; dine-in vs takeaway; expenses; ingredient cost; profit. Export CSV, print a summary. |
+| **Money** · حساب | Expenses (مصارف) by category, withdrawals (برداشتی‌ها) by person, and closing the day: what should be in the cash drawer vs what you counted. |
+| **Customers** · مشتریان | Regulars, what they owe on credit, payments received, loyalty points, full history. |
+| **Menu** · منو | Dari and English names, prices, a drawing colour, and a recipe per item. Shows cost and margin when ingredient costs are set. |
+| **Stock** · گدام | Ingredient amounts that sales draw down. Receive stock (optionally recorded as an expense), log waste, count. |
+| **Buy** · خرید | What's running low, plus a shopping list to copy and send. |
+| **Make** · تهیه | Check whether there's enough to make a batch, and the day's prep list. |
+| **Settings** · تنظیمات | Language, calendar, Persian or Western digits, light/dark, shop and receipt details, 58/80 mm paper, tax, loyalty, owner PIN, backup and restore. |
 
-The program prints the addresses to open:
-
-```
-  Senso Bar is running
-  On this computer:   http://localhost:8080
-  On phones (Wi-Fi):  http://192.168.1.20:8080
-```
-
-Data is kept in `senso-data.json` next to where you start it. The first run fills in the full Senso Bar menu.
-
-### Settings
-
-| Variable     | Default            | What it does                                      |
-|--------------|--------------------|---------------------------------------------------|
-| `SENSO_ADDR` | `0.0.0.0:8080`     | Where to listen. Use `127.0.0.1:8080` to keep it on this computer only. |
-| `SENSO_DATA` | `senso-data.json`  | The data file.                                    |
-
-Shop name, phone, Instagram, receipt footer, paper width (58 or 80 mm), currency sign and time zone are set in the app under the settings button.
+An **owner PIN** (optional) locks Reports, Money, Settings and voiding orders.
 
 ## Before using it in the shop
 
-1. **Check the hot drinks and teas.** They came from a blurry photo of the handwritten board and are marked *Check* on the Menu tab.
-2. **Count your stock.** The starting amounts are examples.
-3. **Adjust recipes** to match how you make each item, so stock stays accurate.
-4. **Back up** now and then: Settings → backup of all data, or copy `senso-data.json`.
+1. **Check the hot drinks and teas.** They came from a blurry photo of the handwritten board and are marked *Check* on the Menu.
+2. **Count your stock** and set each amount; the starting amounts are examples.
+3. **Set ingredient costs** on Stock so reports show real profit.
+4. **Adjust recipes** to match how you make each item.
 
-There is no login. Anyone on the shop Wi-Fi who opens the address can use the app, so run it with `SENSO_ADDR=127.0.0.1:8080` if the Wi-Fi is shared with customers.
+## Your data
 
-## Printing receipts
+Data lives only on the device where it was entered (Windows and each phone keep separate records). Save a backup from Settings often and keep it on a flash drive. The Windows app also saves a backup every day to `Documents › Senso Bar Backups` and keeps the last 30.
 
-**Print receipt** opens a page sized for thermal receipt paper and starts printing. Choose the receipt printer in the print window and set margins to none. Most USB and network receipt printers work this way.
+## Phone app
+
+The *Publish phone app* workflow puts the app on GitHub Pages. Turn it on once: repository **Settings → Pages → Source: GitHub Actions**, then re-run the workflow. The address will be `https://<your-username>.github.io/senso/`.
 
 ## Development
 
 ```sh
-cargo test       # JSON, dates, orders, stock and storage tests
-cargo build --release
+npm install
+npm test          # core rules: Hijri dates, orders, credit, stock, money, reports
+npm start         # run the Windows app (Electron)
+npm run dist      # build the .exe files into dist/
 ```
 
-| File              | What's in it                                    |
-|-------------------|-------------------------------------------------|
-| `src/main.rs`     | Start-up and the connection loop                |
-| `src/api.rs`      | Routes and the JSON API                         |
-| `src/store.rs`    | Data model, order and stock rules, saving       |
-| `src/seed.rs`     | The starting menu and ingredients               |
-| `src/receipt.rs`  | Printable receipts and CSV export               |
-| `src/json.rs`     | JSON parser and writer                          |
-| `src/http.rs`     | Minimal HTTP handling                           |
-| `src/clock.rs`    | Dates and times in shop time                    |
-| `ui/index.html`   | The whole interface, built into the program     |
+Or open `app/index.html` directly in Chrome or Edge.
 
-### API
-
-All changes return the full app state as `{"ok":true,"state":{...}}`; errors return `{"error":"..."}`.
-
-| Method | Path | Body |
-|---|---|---|
-| GET | `/api/state` | |
-| GET | `/api/orders?day=YYYY-MM-DD` | |
-| POST | `/api/orders` | `{items:[{id,qty}], table, note, discount}` |
-| POST | `/api/orders/{id}/void` | |
-| POST, PUT, DELETE | `/api/menu`, `/api/menu/{id}` | `{fa, en, cat, price, color, active, verify, recipe:[{ing,qty}]}` |
-| POST, PUT, DELETE | `/api/ingredients`, `/api/ingredients/{id}` | `{name, qty, unit, min, cost, supplier}` |
-| POST | `/api/ingredients/{id}/adjust` | `{delta}` |
-| POST | `/api/shopping`, `/api/shopping/{id}/toggle`, `/api/shopping/clear` | `{text, qty, ing}` |
-| POST | `/api/prep`, `/api/prep/{id}/toggle`, `/api/prep/clear` | `{text}` |
-| PUT | `/api/settings` | any settings fields |
-| GET | `/receipt/{id}` | add `?print=1` to print on open |
-| GET | `/export/orders.csv`, `/export/backup.json` | |
+| Path | What's in it |
+|---|---|
+| `app/js/core.js` | Dates (Solar Hijri and Gregorian), storage (IndexedDB), and the rules: checkout, voids, credit, stock, cash summary, reports |
+| `app/js/app.js` | Screens and actions |
+| `app/js/i18n.js` | Dari and English wording |
+| `app/js/seed.js` | The starting menu and ingredients |
+| `app/css/app.css` | Look and layout (right-to-left aware) |
+| `electron/` | Windows wrapper: printing, file saving, daily backups |
+| `.github/workflows/` | Builds the Windows `.exe` and the phone app |
