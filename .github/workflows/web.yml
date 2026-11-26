@@ -7,6 +7,7 @@ name: Publish phone app
 on:
   push:
     branches: [main]
+    paths: ['app/**', 'scripts/**', '.github/workflows/web.yml']
   workflow_dispatch:
 
 permissions:
