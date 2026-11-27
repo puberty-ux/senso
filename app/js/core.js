@@ -316,9 +316,9 @@
 
   /* ---------- storage (IndexedDB) ---------- */
   const DB_NAME = 'senso-bar', DB_VER = 1;
-  C.openDB = () => new Promise((res, rej) => {
+  C.openDB = (name = DB_NAME) => new Promise((res, rej) => {
     if (typeof indexedDB === 'undefined') return rej(new Error('no_indexeddb'));
-    const rq = indexedDB.open(DB_NAME, DB_VER);
+    const rq = indexedDB.open(name, DB_VER);
     rq.onupgradeneeded = () => {
       const db = rq.result;
       for (const s of ['kv', ...C.STORES]) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' });

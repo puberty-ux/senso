@@ -107,6 +107,8 @@
     enter_pin: ['Enter the owner PIN', 'رمز مالک را وارد کنید'], wrong_pin: ['Wrong PIN', 'رمز اشتباه است'], unlock: ['Unlock', 'باز کردن'],
     lock_now: ['Lock', 'قفل'], storage_fail: ["This device can't save data here. Open the app from the Windows program or the installed app.", 'این دستگاه نمی‌تواند معلومات را ذخیره کند. برنامه را از نسخه ویندوز یا برنامه نصب‌شده باز کنید.'],
     install_app: ['Install app', 'نصب برنامه'], about: ['About', 'درباره'],
+    demo_title: ['Example data.', 'معلومات نمونه.'], demo_text: ['These sales, customers and expenses are made up so you can try every screen. What you do here stays in this browser and never mixes with real data.', 'این فروش‌ها، مشتریان و مصارف ساختگی هستند تا بتوانید همه بخش‌ها را امتحان کنید. هر کاری اینجا کنید فقط در همین مرورگر می‌ماند و با معلومات واقعی مخلوط نمی‌شود.'],
+    demo_reset: ['Start the example over', 'شروع دوباره نمونه'], demo_real: ['Open the real app', 'باز کردن برنامه اصلی'], demo_restarted: ['Example restarted', 'نمونه از نو شروع شد'],
     nav_backup: ['Backup', 'پشتیبان'], good_morning: ['Good morning', 'صبح بخیر'], good_afternoon: ['Good afternoon', 'روز بخیر'],
     good_evening: ['Good evening', 'عصر بخیر'], good_night: ['Good night', 'شب بخیر'], popular: ['Popular', 'پرطرفدار'], exact_amt: ['Exact', 'پول دقیق'],
     saved_to: ['Saved to {w}', 'ذخیره شد در {w}'], save_failed: ["Couldn't save.", 'ذخیره نشد.'],

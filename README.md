@@ -2,6 +2,19 @@
 
 Offline point of sale and back office for Senso Bar, in **Dari and English**. It runs on a Windows computer as a normal program, and on Android phones and tablets as an installed app. It needs no internet and no server: everything is saved on the device.
 
+## Try it
+
+Open on any phone or computer, no install or sign-in needed:
+
+| Link | |
+|---|---|
+| **[Example in Dari](https://puberty-ux.github.io/senso/?demo)** | The full app filled with made-up sales, customers, expenses and withdrawals from the last 75 days, so every screen has something to show. |
+| **[Example in English](https://puberty-ux.github.io/senso/?demo&lang=en)** | The same example in English. |
+| [Example reports](https://puberty-ux.github.io/senso/?demo&lang=en#reports) | Opens straight on the daily, monthly and yearly reports. |
+| [The real app](https://puberty-ux.github.io/senso/) | Starts empty with the Senso Bar menu, for real use. |
+
+Everything stays in the visitor's own browser. The example is kept separate from real data, and **Start the example over** resets it.
+
 ## Download
 
 - **Windows:** open [Releases](../../releases/latest) and download

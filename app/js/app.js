@@ -5,6 +5,9 @@
   const t = I.t;
   const native = window.sensoNative || null; // set by the Windows app
   const FS = window.SensoFiles;
+  const QS = new URLSearchParams(location.search);
+  const DEMO = QS.has('demo') && !!window.SensoDemo;
+  const QLANG = ['en', 'fa'].includes(QS.get('lang')) ? QS.get('lang') : null;
 
   let db = null, S = null;
   const U = {
@@ -108,7 +111,7 @@
   const markBackup = () => { try { localStorage.setItem('senso-last-backup', String(Date.now())); } catch (_) { /* ignore */ } };
   const backupName = () => `senso-backup-${today()}.json`;
   function scheduleBackup() {
-    if (FS.kind === 'web' || S.settings.autoBackup === false) return;
+    if (DEMO || FS.kind === 'web' || S.settings.autoBackup === false) return;
     clearTimeout(backupT);
     backupT = setTimeout(async () => {
       try {
@@ -140,7 +143,7 @@
     $('#mname').textContent = I.lang === 'fa' ? (S.settings.shop.fa || S.settings.shop.name) : S.settings.shop.name;
     const main = $('#main');
     main.classList.toggle('view', U.anim);
-    main.innerHTML = dots((V[U.tab] || V.sell)());
+    main.innerHTML = dots(demoBanner() + (V[U.tab] || V.sell)());
     if (U.anim) { countUp(main); }
     U.anim = false;
     const n = U.cart.reduce((s, c) => s + c.qty, 0);
@@ -159,6 +162,11 @@
     });
   }
   const V = {};
+  function demoBanner() {
+    if (!DEMO) return '';
+    const real = location.pathname + (QLANG ? '?lang=' + QLANG : '');
+    return `<div class="note demo-note"><p><b>${t('demo_title')}</b> ${t('demo_text')}</p><div class="row"><button class="btn sm" data-act="demoReset">${t('demo_reset')}</button><a class="btn sm go" href="${esc(real)}">${t('demo_real')}</a></div></div>`;
+  }
   const empty = (h, b) => `<div class="empty"><b>${h}</b>${b || ''}</div>`;
   const chip = (act, id, on, label, color) => `<button class="chip" data-act="${act}" data-id="${esc(id)}" aria-pressed="${on}" ${color ? `style="--c:${esc(color)}"` : ''}>${color ? '<i></i>' : ''}${label}</button>`;
   const seg = (act, cur_, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-act="${act}" data-id="${esc(v)}" aria-pressed="${cur_ === v}">${l}</button>`).join('')}</div>`;
@@ -998,6 +1006,7 @@
     exportSave: id => { const f = buildExport(id); saveFile(f.name, f.text, 'text/csv'); },
     exportShare: id => { const f = buildExport(id); FS.share(f.name, f.text, t('exp_' + id)).catch(e => toast(String(e.message || e), true)); },
     rmPhoto: () => { syncItem(); U.edit.obj.photo = ''; $('#e-photo').innerHTML = pic(U.edit.obj); },
+    demoReset: (id, el) => armed(el, async () => { S = window.SensoDemo.build(C, SEED, { lang: S.settings.lang }); if (db) await C.wipeAndLoad(db, S); U.cart = []; U.ord = blankOrder(); applyLook(); toast(t('demo_restarted')); go('sell'); }),
     eraseAll: (id, el) => armed(el, async () => { const fresh = seedState(); fresh.settings = { ...fresh.settings, lang: S.settings.lang, digits: S.settings.digits, calendar: S.settings.calendar, theme: S.settings.theme, shop: S.settings.shop }; await C.wipeAndLoad(db, fresh); S = fresh; U.cart = []; U.ord = blankOrder(); toast(t('deleted')); go('sell'); }),
   };
   function pickRows(list) {
@@ -1072,14 +1081,15 @@
   }
   async function start() {
     try {
-      db = await C.openDB();
+      db = await C.openDB(DEMO ? 'senso-bar-demo' : undefined);
       const r = await C.loadAll(db);
-      if (!r.seeded) { S = seedState(); await C.wipeAndLoad(db, S); } else S = r.state;
+      if (!r.seeded) { S = DEMO ? window.SensoDemo.build(C, SEED, { lang: QLANG }) : seedState(); await C.wipeAndLoad(db, S); } else S = r.state;
+      if (QLANG && S.settings.lang !== QLANG) { const ch = [{ store: 'settings', put: { ...S.settings, lang: QLANG, digits: QLANG } }]; C.apply(S, ch); await C.save(db, ch); }
       const P = SEED.photos(); const fix = S.menu.filter(m => P[m.id] && (m.photo === undefined || /^img\/items\/.+\.jpg$/.test(m.photo))).map(m => ({ store: 'menu', put: { ...m, photo: P[m.id] } }));
       if (fix.length) { C.apply(S, fix); await C.save(db, fix); }
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     } catch (e) {
-      console.error(e); db = null; S = seedState();
+      console.error(e); db = null; S = DEMO ? window.SensoDemo.build(C, SEED, { lang: QLANG }) : seedState();
       setTimeout(() => toast(t('storage_fail'), true), 600);
     }
     applyLook();

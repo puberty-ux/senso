@@ -454,3 +454,6 @@ legend{color:var(--muted);font-size:13.5px;padding:0 6px}
 .xi svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .er .icon-btn{width:36px;height:36px}
 .stack{display:grid;gap:18px}
+.demo-note{background:color-mix(in oklab,var(--stool) 16%,var(--surface));border:1px dashed color-mix(in oklab,var(--stool) 55%,var(--line))}
+.demo-note a.btn{text-decoration:none}
+@media (max-width:560px){.period .grow{display:none}.period .lbl{min-width:0;flex:1;font-size:17px}}
